@@ -55,7 +55,7 @@ COLD_START_THRESHOLD = 5  # Minimum tracks needed before using collaborative fil
 # HELPER FUNCTIONS
 # ============================================================================
 
-ef compute_score(listened_seconds, total_duration=None):
+def compute_score(listened_seconds, total_duration=None):
     """
     Calculate an engagement score between 0 and 10 based on completion ratio.
     
@@ -127,7 +127,7 @@ def init_db():
     print(f"Database '{DB_NAME}' initialized successfully.")
 
 
-    def init_content_recommender():
+def init_content_recommender():
     """
     Initialize the content-based recommender system.
     Loads embeddings and metadata on server startup.
