@@ -46,3 +46,55 @@ def get_recommendations(users_listenings: list[tuple[str, int]]) -> list[str]:
         return []
     
     print(f"[COLLAB_API] Found {len(user_song_indexes)} known songs in input")
+
+
+
+# Restrict q to songs listened by the given user
+    user_songs_selector = [
+        True if idx in user_song_indexes else False for idx in range(len(q))
+    ]
+    q_user_songs = q[user_songs_selector]
+    b_song_user_songs = b_song[user_songs_selector]
+
+    p_user_songs = (
+        # Shape: (#USERS, len(users_listenings))
+        (p @ q_user_songs.T)
+        + average_listening_count
+        # Shape: (#USERs, 1)
+        + b_user[:, np.newaxis]
+        # Shape: (len(users_listenings))
+        + b_song_user_songs
+    )
+    user_vector = normalize(
+        np.array(
+            [
+                listening_count
+                for _, listening_count in
+                # Sort by song index
+                sorted(user_song_indexes.items(), key=lambda key_value: key_value[0])
+            ],
+            dtype=[("Listening count", np.float64)],
+        )
+    )
+
+    # Similarity (L2) of predictions of given songs for users in the dataset
+    p_user_songs_dist = ((p_user_songs - user_vector["Listening count"]) ** 2).sum(
+        axis=1
+    )
+
+    # Keep the most similar one
+    most_similar_user_index = p_user_songs_dist.argsort()[0]
+
+    # Compute predictions of this most similar user for all songs
+    most_similar_user_predictions = (
+        (p[most_similar_user_index] @ q.T)
+        + average_listening_count
+        + b_user[most_similar_user_index]
+        + b_song
+    )
+
+    # Keep the best 5 songs for this most similar user
+    # Filter predictions to only songs in metadata, then get top 5
+    valid_indices = np.array([idx for idx in range(len(most_similar_user_predictions)) if idx in songs_metadata_indices])
+    top_songs = valid_indices[most_similar_user_predictions[valid_indices].argsort()[-5:][::-1]]
+    return [SONG_MAPPING_REVERT[song] for song in top_songs]
