@@ -92,3 +92,41 @@ class ContentBasedRecommender:
             return None
             
         return weighted_sum / total_weight
+    
+
+    def recommend(self, user_embedding, n_recommendations=5):
+        """
+        Finds the nearest songs to the user's embedding.
+        
+        Args:
+            user_embedding (np.array): The user's accumulated vector.
+            n_recommendations (int): Number of songs to recommend.
+            
+        Returns:
+            list: List of recommended songs with metadata.
+        """
+        if user_embedding is None:
+            return []
+            
+        # Reshape for sklearn (1, n_features)
+        query = user_embedding.reshape(1, -1)
+        
+        distances, indices = self.knn_model.kneighbors(query, n_neighbors=n_recommendations)
+        
+        recommendations = []
+        for i, idx in enumerate(indices[0]):
+            song_id = self.song_ids[idx]
+            dist = distances[0][i]
+            
+            details = self.song_details.get(song_id, {'title': 'Unknown', 'artist_name': 'Unknown'})
+            
+            rec = {
+                'song_id': song_id,
+                'distance': float(dist),
+                'similarity': 1.0 - float(dist), # cosine distance to similarity
+                **details
+            }
+            recommendations.append(rec)
+            
+        return recommendations
+
