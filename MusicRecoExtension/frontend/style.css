@@ -143,3 +143,128 @@
     display: block;
     margin-bottom: 6px;
 }
+
+#algo-selector {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    outline: none;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#algo-selector:hover {
+    border-color: var(--primary);
+}
+
+#algo-selector:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(255, 85, 0, 0.1);
+}
+
+.user-id-info {
+    color: var(--text-muted);
+    font-size: 9px;
+    margin-top: 8px;
+    text-align: center;
+    font-family: monospace;
+}
+
+#reco-content {
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 220px;
+    background: transparent;
+}
+
+.view-section {
+    width: 100%;
+    text-align: center;
+    display: none;
+}
+
+.view-section.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Initial View */
+.icon-wrapper {
+    margin-bottom: 16px;
+}
+
+.main-icon {
+    width: 56px;
+    height: 56px;
+    color: var(--primary);
+    filter: drop-shadow(0 4px 16px rgba(255, 85, 0, 0.6));
+}
+
+.view-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    letter-spacing: -0.5px;
+}
+
+.view-description {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    padding: 0 8px;
+    text-align: center;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: var(--text-primary);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(255, 85, 0, 0.3);
+}
+
+.primary-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.primary-btn:hover {
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    box-shadow: 0 6px 20px rgba(255, 85, 0, 0.4);
+    transform: translateY(-1px);
+}
+
+.primary-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 85, 0, 0.3);
+}
+
+/* Playing View */
+.status-indicator {
+    margin-bottom: 20px;
+}
