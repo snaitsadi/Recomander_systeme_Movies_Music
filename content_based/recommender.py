@@ -27,3 +27,22 @@ class ContentBasedRecommender:
         
         self._load_data()
         self._build_index()
+
+
+def _load_data(self):
+        """Loads embeddings and metadata."""
+        if not os.path.exists(self.embeddings_path):
+            raise FileNotFoundError(f"Embeddings file not found at {self.embeddings_path}. Run embedding_generator.py first.")
+        
+        print(f"Loading embeddings from {self.embeddings_path}...")
+        with open(self.embeddings_path, 'rb') as f:
+            self.embedding_map = pickle.load(f)
+            
+        if os.path.exists(self.metadata_path):
+            print(f"Loading metadata from {self.metadata_path}...")
+            self.metadata_df = pd.read_pickle(self.metadata_path)
+            # Create a quick lookup for details
+            self.song_details = self.metadata_df.set_index('song_id')[['title', 'artist_name']].to_dict('index')
+        else:
+            print("Warning: Metadata file not found. Recommendations will return IDs only.")
+            self.song_details = {}
