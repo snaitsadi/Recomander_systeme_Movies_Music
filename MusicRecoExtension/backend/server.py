@@ -125,3 +125,208 @@ def init_db():
     conn.commit()
     conn.close()
     print(f"Database '{DB_NAME}' initialized successfully.")
+
+
+    def init_content_recommender():
+    """
+    Initialize the content-based recommender system.
+    Loads embeddings and metadata on server startup.
+    """
+    global content_recommender
+    
+    if not CONTENT_RECOMMENDER_AVAILABLE:
+        print("[CONTENT-BASED] Skipping initialization - module not available")
+        return
+    
+    try:
+        content_recommender = load_content_recommender()
+        print("[CONTENT-BASED] ✓ Recommender initialized successfully")
+    except FileNotFoundError as e:
+        print(f"[CONTENT-BASED] ⚠ Could not load recommender: {e}")
+        content_recommender = None
+    except Exception as e:
+        print(f"[CONTENT-BASED] ⚠ Error initializing recommender: {e}")
+        content_recommender = None
+
+
+# =============================================================================
+# API ENDPOINTS
+# =============================================================================
+
+@app.route('/')
+def home():
+    """Root endpoint - API status check."""
+    return jsonify({
+        "service": "SoundCloud Music Recommender API",
+        "status": "running",
+        "version": "1.0"
+    })
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for monitoring."""
+    return jsonify({
+        "status": "healthy",
+        "service": "music-reco-api"
+    })
+
+@app.route('/recommend/next', methods=['GET'])
+def recommend_next_track():
+    """
+    Get next recommended track for a user.
+    
+    Supports both query parameters (preferred) and JSON body.
+    
+    Query Parameters:
+        userId (str): Unique user identifier
+        algoType (str): Algorithm type - 'matriciel', 'content', or 'mix'
+                       Defaults to 'matriciel'
+    
+    Returns:
+        JSON: {
+            "song_title": str,
+            "algorithm": str,
+            "status": "success"
+        }
+    
+    Example:
+        GET /recommend/next?userId=user123&algoType=matriciel
+    """
+    # Support both query parameters and JSON body
+    user_id = request.args.get('userId') or (request.json.get('userId') if request.json else None)
+    algo_type = request.args.get('algoType') or (request.json.get('algoType') if request.json else 'matriciel')
+    
+    print(f"[RECOMMENDATION] User: {user_id} | Algorithm: {algo_type}")
+
+    suggestion = "Default Track"
+    algo_used = algo_type
+    track_details = {}
+
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        
+        # Check for cold start: Does user have sufficient listening history?
+        cursor.execute("SELECT COUNT(*) FROM listening_history WHERE user_id = ?", (user_id,))
+        history_count = cursor.fetchone()[0]
+
+        # Cold start scenario: Less than required tracks in history
+        if history_count < COLD_START_THRESHOLD:
+            algo_used = "cold_start_top50"
+            
+            # Get top 50 most popular tracks with metadata
+            cursor.execute('''
+                SELECT s.song_id, s.title, s.artist, s.duration, s.release, s.year, s.tempo 
+                FROM listening_history lh
+                LEFT JOIN songs s ON lh.song_id = s.song_id
+                GROUP BY lh.song_id
+                ORDER BY SUM(lh.listening_time) DESC
+                LIMIT 50
+            ''')
+            
+            rows = cursor.fetchall()
+            valid_rows = [row for row in rows if row[1] and row[2]]  # Ensure title and artist exist
+            
+            if valid_rows:
+                selected = random.choice(valid_rows)
+                suggestion = f"{selected[1]} - {selected[2]}"
+                track_details = {
+                    "song_id": selected[0],
+                    "title": selected[1],
+                    "artist": selected[2],
+                    "duration": selected[3],
+                    "release": selected[4],
+                    "year": selected[5],
+                    "tempo": selected[6]
+                }
+            else:
+                # No tracks in database at all - use fallback
+                suggestion = "Bohemian Rhapsody - Queen"
+                algo_used = "fallback_default"
+        else:
+            # User has sufficient history - use algorithm-specific logic
+            selected_track_obj = None
+            
+            if algo_type == 'content':
+                if CONTENT_RECOMMENDER_AVAILABLE and content_recommender:
+                    try:
+                        recs = get_content_based_recommendation(content_recommender, user_id, conn)
+                        if recs:
+                            # Content recommender returns list of dicts
+                            selected_track_obj = random.choice(recs)
+                            algo_used = "content_v1"
+                        else:
+                             algo_used = "content_empty"
+                    except Exception as e:
+                        print(f"[CONTENT] Error: {e}")
+                        algo_used = "content_error"
+                else:
+                    algo_used = "content_na"
+                    
+            elif algo_type == 'matriciel':
+                if is_collaborative_available():
+                    try:
+                        # Wrapper handles DB lookup
+                        recs = get_collaborative_recommendations(user_id, conn, limit=10)
+                        if recs:
+                            selected_track_obj = random.choice(recs)
+                            algo_used = "matriciel_v1"
+                        else:
+                            algo_used = "matriciel_empty"
+                    except Exception as e:
+                        print(f"[COLLAB] Error: {e}")
+                        algo_used = "matriciel_error"
+                else:
+                    algo_used = "matriciel_na"
+                    
+            elif algo_type == 'mix':
+                 if MIX_RECOMMENDER_AVAILABLE:
+                     try:
+                         # mix recommender handles scoring and returns single winner
+                         rec, reason = get_mix_recommendation(user_id, conn, content_recommender)
+                         if rec:
+                             selected_track_obj = rec
+                             algo_used = reason
+                         else:
+                             algo_used = reason
+                     except Exception as e:
+                         print(f"[MIX] Error: {e}")
+                         algo_used = "mix_error"
+                 else:
+                     algo_used = "mix_na"
+            
+            # Fallback if no track selected
+            if selected_track_obj:
+               # Ensure we have required keys
+               title = selected_track_obj.get('title', 'Unknown Title')
+               artist = selected_track_obj.get('artist') or selected_track_obj.get('artist_name') or 'Unknown Artist'
+               suggestion = f"{title} - {artist}"
+               
+               track_details = {
+                    "song_id": selected_track_obj.get('song_id'),
+                    "title": title,
+                    "artist": artist,
+                    "duration": selected_track_obj.get('duration', DEFAULT_SONG_DURATION),
+                    "release": selected_track_obj.get('release'),
+                    "year": selected_track_obj.get('year', 0),
+                    "tempo": selected_track_obj.get('tempo', 0)
+                }
+            else:
+                 suggestion = "Hotel California - The Eagles"
+                 algo_used += "_fallback"
+
+        conn.close()
+
+    except Exception as e:
+        print(f"[ERROR] Database error in /recommend/next: {e}")
+        suggestion = "Bohemian Rhapsody - Queen"  # Fallback track
+        algo_used = "error_fallback"
+
+    response_data = {
+        "song_title": suggestion,
+        "algorithm": algo_used,
+        "status": "success",
+        **track_details
+    }
+
+    return jsonify(response_data)
