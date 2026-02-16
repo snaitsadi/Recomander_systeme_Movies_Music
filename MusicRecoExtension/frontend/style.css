@@ -1,0 +1,145 @@
+/* Root variables - SoundCloud inspired color palette */
+:root {
+    --primary: #FF5500;
+    --primary-dark: #E04D00;
+    --primary-light: #FF6B1A;
+    --bg-main: #0A0A0A;
+    --bg-secondary: #1A1A1A;
+    --bg-elevated: #242424;
+    --text-primary: #FFFFFF;
+    --text-secondary: #AAAAAA;
+    --text-muted: #666666;
+    --border: #2A2A2A;
+    --accent: #00D9FF;
+}
+
+#music-reco-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 13px;
+    z-index: 2147483647;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+}
+
+#reco-panel {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 280px;
+    background: linear-gradient(145deg, rgba(20, 20, 20, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
+    border: 2px solid var(--primary);
+    box-shadow: 0 0 30px rgba(255, 85, 0, 0.5), 0 10px 50px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 85, 0, 0.2);
+    border-radius: 16px;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+}
+
+#reco-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(255, 85, 0, 0.15) 0%, rgba(255, 85, 0, 0.05) 100%);
+    border-bottom: 2px solid rgba(255, 85, 0, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 2px 10px rgba(255, 85, 0, 0.2);
+}
+
+#reco-header:active {
+    cursor: grabbing;
+}
+
+.reco-header-title {
+    display: flex;
+    align-items: center;
+}
+
+.header-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--primary);
+    filter: drop-shadow(0 0 12px rgba(255, 85, 0, 0.8));
+    animation: iconGlow 3s ease-in-out infinite;
+}
+
+@keyframes iconGlow {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 85, 0, 0.8)); }
+    50% { filter: drop-shadow(0 0 20px rgba(255, 85, 0, 1)); }
+}
+
+.reco-header-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.reco-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    width: 28px;
+    height: 28px;
+}
+
+.reco-icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.reco-icon-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    transform: scale(1.05);
+}
+
+.reco-icon-btn:active {
+    transform: scale(0.95);
+}
+
+
+#reco-settings-panel {
+    display: none;
+    background: var(--bg-secondary);
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    animation: slideDown 0.2s ease;
+}
+
+#reco-settings-panel.visible {
+    display: block;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 200px;
+    }
+}
+
+.setting-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 6px;
+}
