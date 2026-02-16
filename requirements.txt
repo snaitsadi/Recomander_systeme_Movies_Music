@@ -1,0 +1,10 @@
+flask
+flask-cors
+pandas
+numpy
+scikit-learn
+h5py
+tqdm
+sentence-transformers
+matplotlib
+ipykernel
