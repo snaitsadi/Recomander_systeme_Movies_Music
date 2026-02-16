@@ -449,5 +449,94 @@ class MusicRecoUI {
                     transform: scaleY(1);
                 }
             }
+            .listening-text {
+                font-size: 13px;
+                color: var(--text-secondary);
+                margin-bottom: 24px;
+                font-weight: 500;
+            }
+
+            #reco-timer {
+                display: none;
+            }
+
+            .action-buttons {
+                display: flex;
+                gap: 10px;
+                width: 100%;
+            }
+
+            .icon-btn {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                color: var(--text-secondary);
+                cursor: pointer;
+                padding: 12px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: 1;
+                transition: all 0.2s ease;
+            }
+
+            .icon-btn svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            .icon-btn:hover {
+                background: var(--bg-secondary);
+                border-color: var(--primary);
+                color: var(--primary);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(255, 85, 0, 0.2);
+            }
+
+            .icon-btn:active {
+                transform: translateY(0);
+            }
+
+            .stop-btn {
+                border-color: #FF3B3B;
+            }
+
+            .stop-btn:hover {
+                background: #FF3B3B;
+                border-color: #FF3B3B;
+                color: var(--text-primary);
+                box-shadow: 0 4px 12px rgba(255, 59, 59, 0.3);
+            }
+
+            /* Loader */
+            #temp-loader {
+                justify-content: center;
+                align-items: center;
+                min-height: 200px;
+            }
+
+            .loader-spinner {
+                margin-bottom: 16px;
+            }
+
+            .loader-spinner svg {
+                width: 48px;
+                height: 48px;
+                color: var(--primary);
+                animation: spin 1s linear infinite;
+                filter: drop-shadow(0 0 10px rgba(255, 85, 0, 0.4));
+            }
+
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+
+            .loader-text {
+                font-size: 13px;
+                color: var(--text-secondary);
+                font-weight: 500;
+            }
+        `;
+    }
 
 
