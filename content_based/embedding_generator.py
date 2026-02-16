@@ -64,3 +64,43 @@ class SongEmbeddingGenerator:
              
         # Create a sentence
         return ". ".join(parts) + "."
+    
+
+
+    def generate(self):
+        """
+        Loads data, generates embeddings, and saves them.
+        """
+        if not os.path.exists(self.data_path):
+            raise FileNotFoundError(f"Data file not found at {self.data_path}. Please run data_cleaning_script.ipynb first.")
+            
+        print(f"Loading songs metadata from {self.data_path}...")
+        df = pd.read_pickle(self.data_path)
+        
+        print(f"Generating textual descriptions for {len(df)} songs...")
+        descriptions = df.apply(self._create_text_representation, axis=1).tolist()
+        
+        print(f"Encoding descriptions with {self.model_name}...")
+        # Encode in batches to show progress
+        embeddings = self.model.encode(descriptions, show_progress_bar=True, convert_to_numpy=True)
+        
+        # Create a dictionary mapping song_id to embedding
+        # This assumes song_id is unique and present
+        if 'song_id' not in df.columns:
+            raise ValueError("DataFrame missing required 'song_id' column.")
+            
+        embedding_map = {
+            song_id: emb 
+            for song_id, emb in zip(df['song_id'], embeddings)
+        }
+        
+        print(f"Saving embeddings to {self.output_path}...")
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        with open(self.output_path, 'wb') as f:
+            pickle.dump(embedding_map, f)
+            
+        print("Done.")
+
+if __name__ == "__main__":
+    generator = SongEmbeddingGenerator()
+    generator.generate()
