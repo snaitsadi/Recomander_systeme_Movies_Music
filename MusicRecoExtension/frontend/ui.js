@@ -538,5 +538,92 @@ class MusicRecoUI {
             }
         `;
     }
+    attachEventListeners() {
+        const startBtn = this.shadowRoot.querySelector('#start-btn');
+        const nextBtn = this.shadowRoot.querySelector('#next-btn');
+        const stopBtn = this.shadowRoot.querySelector('#stop-btn');
+        const cancelLoadingBtn = this.shadowRoot.querySelector('#cancel-loading-btn');
+        const settingsBtn = this.shadowRoot.querySelector('#settings-btn');
+        const closeBtn = this.shadowRoot.querySelector('#close-btn');
 
+        if (startBtn) startBtn.addEventListener('click', () => {
+            if (this.handlers.onStart) this.handlers.onStart();
+        });
+
+        if (nextBtn) nextBtn.addEventListener('click', () => {
+            if (this.handlers.onNext) this.handlers.onNext();
+        });
+
+        if (stopBtn) stopBtn.addEventListener('click', () => {
+            if (this.handlers.onStop) this.handlers.onStop();
+        });
+
+        if (cancelLoadingBtn) cancelLoadingBtn.addEventListener('click', () => {
+            if (this.handlers.onCancelLoading) this.handlers.onCancelLoading();
+        });
+
+        if (settingsBtn) settingsBtn.addEventListener('click', () => this.toggleSettings());
+
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+            this.toggleVisibility(false);
+            if (this.handlers.onClose) this.handlers.onClose();
+        });
+
+        // Algorithm button listeners
+        this.elements.algoButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const algo = e.target.dataset.algo;
+                // Update active state
+                this.elements.algoButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                // Trigger handler
+                if (this.handlers.onAlgoChange) this.handlers.onAlgoChange(algo);
+            });
+        });
+    }
+
+    // --- Actions ---
+
+    toggleVisibility(show) {
+        this.container.style.display = show ? 'block' : 'none';
+    }
+
+    toggleSettings(force) {
+        const p = this.elements.settingsPanel;
+        const show = force !== undefined ? force : !p.classList.contains('visible');
+        if (show) p.classList.add('visible');
+        else p.classList.remove('visible');
+    }
+
+    showView(viewName, data = {}) {
+        Object.values(this.views).forEach(v => v.classList.remove('active'));
+        
+        if (viewName === 'initial') this.views.initial.classList.add('active');
+        if (viewName === 'playing') this.views.playing.classList.add('active');
+        if (viewName === 'loader') {
+            this.views.loader.classList.add('active');
+            if(data.algo) this.elements.loaderText.textContent = `(Algo: ${data.algo})`;
+        }
+    }
+
+    updateTimer(seconds) {
+        if (!this.elements.timer) return;
+        const min = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const sec = (seconds % 60).toString().padStart(2, '0');
+        this.elements.timer.textContent = `${min}:${sec}`;
+    }
+
+    setUserId(id) {
+        if (this.elements.userIdDisplay) this.elements.userIdDisplay.textContent = id;
+    }
+
+    setAlgo(algo) {
+        this.elements.algoButtons.forEach(btn => {
+            if (btn.dataset.algo === algo) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
 
