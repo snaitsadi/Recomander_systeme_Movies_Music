@@ -29,7 +29,7 @@ class ContentBasedRecommender:
         self._build_index()
 
 
-def _load_data(self):
+    def _load_data(self):
         """Loads embeddings and metadata."""
         if not os.path.exists(self.embeddings_path):
             raise FileNotFoundError(f"Embeddings file not found at {self.embeddings_path}. Run embedding_generator.py first.")
@@ -46,3 +46,49 @@ def _load_data(self):
         else:
             print("Warning: Metadata file not found. Recommendations will return IDs only.")
             self.song_details = {}
+
+
+    def _build_index(self):
+        """Prepares the KNN index for fast retrieval."""
+        # Convert map to matrix for sklearn
+        self.song_ids = list(self.embedding_map.keys())
+        self.embedding_matrix = np.array([self.embedding_map[sid] for sid in self.song_ids])
+        
+        print(f"Building NearestNeighbors index for {len(self.song_ids)} songs...")
+        self.knn_model = NearestNeighbors(n_neighbors=5, metric='cosine', algorithm='brute')
+        self.knn_model.fit(self.embedding_matrix)
+
+    def calculate_user_embedding(self, user_history):
+        """
+        Calculates a user's embedding vector based on their listening history.
+        
+        Args:
+            user_history (list): A list of dictionaries or tuples containing song_id and play_count.
+                                 Format: [{'song_id': '...', 'play_count': 5}, ...] 
+                                 or list of (song_id, count).
+        
+        Returns:
+            np.array: The weighted mean embedding for the user.
+        """
+        if not user_history:
+            return None
+            
+        weighted_sum = np.zeros(self.embedding_matrix.shape[1])
+        total_weight = 0
+        
+        for item in user_history:
+            if isinstance(item, dict):
+                song_id = item.get('song_id')
+                count = item.get('play_count', 1)
+            else:
+                song_id, count = item
+                
+            if song_id in self.embedding_map:
+                embedding = self.embedding_map[song_id]
+                weighted_sum += embedding * count
+                total_weight += count
+        
+        if total_weight == 0:
+            return None
+            
+        return weighted_sum / total_weight
