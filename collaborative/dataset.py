@@ -43,3 +43,17 @@ def load(max_size: int) -> tuple[np.ndarray, dict[str, int], dict[str, int]]:
     # )
 
     return (dataset, USER_MAPPING, SONG_MAPPING)
+
+
+def normalize(dataset: np.ndarray) -> np.ndarray:
+    """
+    Modifies the dataset in place (and returns it too).
+    """
+    dataset["Listening count"] = (
+        dataset["Listening count"] - dataset["Listening count"].mean()
+    ) / dataset["Listening count"].std()
+
+    # print(dataset.dtype, dataset.shape)
+    # print(dataset["Listening count"])
+
+    return dataset
