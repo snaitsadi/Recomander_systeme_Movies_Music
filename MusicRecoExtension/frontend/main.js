@@ -114,3 +114,181 @@ class RecoController {
             }
         });
     }
+    /**
+     * Toggle sidebar visibility.
+     */
+    toggleSidebar() {
+        const isHidden = (this.ui.container.style.display === 'none');
+        this.ui.container.style.display = isHidden ? 'block' : 'none';
+    }
+
+    /**
+     * Change application state and update UI accordingly.
+     * 
+     * @param {string} newState - New state ('idle', 'loading', 'playing')
+     */
+    changeState(newState) {
+        this.state.status = newState;
+        if (newState === 'idle') this.ui.showView('initial');
+        if (newState === 'loading') this.ui.showView('loader', { algo: this.state.algoType });
+        if (newState === 'playing') this.ui.showView('playing');
+    }
+
+    /**
+     * Stop the current listening session and send feedback.
+     */
+    stopSession() {
+        console.log("[Controller] Stopping session...");
+        
+        // Send feedback before stopping if we have listening data
+        if (this.state.listeningTime > 0 && this.state.currentTrackId) {
+            console.log(`[Controller] Sending feedback: ${this.state.currentTrackId}, listened ${this.state.listeningTime}s`);
+            this.api.sendFeedback(
+                this.state.userId,
+                this.state.currentTrackId,
+                this.state.listeningTime
+            ).then(result => {
+                console.log('[Feedback] Result:', result);
+            }).catch(err => {
+                console.error('[Feedback] Error:', err);
+            });
+        }
+        
+        // Reset state
+        this.changeState('idle');
+        this.state.listeningTime = 0;
+        this.state.monitoredUrl = null;
+        this.state.currentTrackSignature = null;
+        this.state.currentTrackId = null;
+        chrome.storage.local.set({ 
+            'listeningTime': 0, 
+            'music_reco_state': 'idle',
+            'currentTrackId': null 
+        });
+        this.ui.updateTimer(0);
+    }
+
+    /**
+     * Trigger a new recommendation request and navigate to the recommended track.
+     */
+    async triggerRecommendation() {
+        console.log("[Controller] Triggering recommendation...");
+        
+        // Send feedback for previous session if any
+        if (this.state.listeningTime > 0 && this.state.currentTrackId) {
+            console.log(`[Controller] Ending previous session: ${this.state.currentTrackId}, ${this.state.listeningTime}s`);
+            try {
+                const feedbackResult = await this.api.sendFeedback(
+                    this.state.userId,
+                    this.state.currentTrackId,
+                    this.state.listeningTime
+                );
+                console.log('[Feedback] Result:', feedbackResult);
+            } catch (err) {
+                console.error('[Feedback] Error:', err);
+            }
+            
+            this.state.listeningTime = 0;
+            chrome.storage.local.set({ 'listeningTime': 0 });
+            this.ui.updateTimer(0);
+        }
+
+        // Reset state for new recommendation
+        this.changeState('loading');
+        this.state.monitoredUrl = null;
+        this.state.currentTrackSignature = null;
+        this.state.currentTrackId = null;
+
+        try {
+            // Get recommendation from API
+            const recommendation = await this.api.getRecommendation(
+                this.state.userId, 
+                this.state.algoType
+            );
+            
+            if (this.state.status !== 'loading') {
+                console.log("[Controller] Recommendation ignored - loading cancelled");
+                return;
+            }
+
+            console.log("[Controller] Recommended:", recommendation.song_title, "via", recommendation.algorithm);
+            
+            const recommendedTrack = recommendation.song_title;
+            // Prefer song_id if available, otherwise use title only as fallback (backend will try to resolve it)
+            const recommendedId = recommendation.song_id || recommendation.song_title;
+            
+            // Store flags for autoplay after navigation
+            chrome.storage.local.set({ 
+                'music_reco_autoplay': true, 
+                'music_reco_state': 'playing',
+                'currentTrackId': recommendedId // Now holding the best identifier we have
+            }, () => {
+                // Navigate to search results using TITLE
+                this.adapter.search(recommendedTrack);
+                
+                // Handle SPA navigation (page doesn't reload)
+                this.adapter.waitForUrl('/search')
+                    .then(() => {
+                        console.log("[Controller] URL changed, triggering autoplay logic for SPA");
+                        // Wait for DOM to update before searching for play buttons
+                        return new Promise(r => setTimeout(r, 1000));
+                    })
+                    .then(() => this.handleAutoplay())
+                    .catch(err => console.log("[Controller] SPA navigation check timeout/error:", err));
+            });
+        } catch (error) {
+            console.error("[Controller] Failed to get recommendation:", error);
+            this.ui.showNotification("Failed to get recommendation. Please try again.");
+            this.changeState('idle');
+        }
+    }
+
+    /**
+     * Handle autoplay logic after navigation to search results.
+     */
+    async handleAutoplay() {
+        this.changeState('loading');
+        
+        const success = await this.adapter.playFirstResult();
+        
+        if (success) {
+            this.changeState('playing');
+            chrome.storage.local.set({ 'music_reco_autoplay': false });
+            
+            // Wait for player update
+            setTimeout(() => {
+                this.state.currentTrackSignature = this.adapter.getCurrentTrackDetails();
+                
+                chrome.storage.local.get(['currentTrackId'], (res) => {
+                    if (res.currentTrackId) {
+                        this.state.currentTrackId = res.currentTrackId;
+                    }
+                });
+            }, 2000);
+            
+        } else {
+            this.ui.showNotification("Content unavailable, skipping...");
+            
+            setTimeout(() => {
+                this.triggerRecommendation();
+            }, 1000);
+        }
+    }
+
+    /**
+     * Start monitoring playback state and track changes.
+     * Uses event-driven approach with minimal polling for performance.
+     */
+    startMonitoring() {
+        let monitoringInterval = null;
+        
+        // Setup history API listener for navigation changes
+        this.adapter.onUrlChange((newUrl) => {
+            console.log("[Controller] URL changed via SPA navigation:", newUrl);
+            if (this.state.status === 'playing') {
+                // Check if user navigated away from playback context
+                if (!newUrl.includes('/you/') && !newUrl.includes('/search')) {
+                    console.log("[Controller] Navigated away from playback context");
+                }
+            }
+        });
