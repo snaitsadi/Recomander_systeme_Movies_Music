@@ -292,3 +292,105 @@ class RecoController {
                 }
             }
         });
+
+
+        
+        // Polling: Only tick when playing to update UI timer and detect track changes
+        let wasPlayingBefore = false;
+        
+        const startTickingInterval = () => {
+            if (monitoringInterval) return; // Already running
+            
+            monitoringInterval = setInterval(() => {
+                const isCurrentlyPlaying = this.adapter.isPlaying();
+
+                // Handle pause/resume
+                if (!isCurrentlyPlaying && wasPlayingBefore) {
+                    // Just paused - keep ticking but don't increment time
+                    wasPlayingBefore = false;
+                    return;
+                }
+                
+                if (isCurrentlyPlaying && !wasPlayingBefore) {
+                    // Just resumed - continue ticking
+                    wasPlayingBefore = true;
+                }
+
+                if (!isCurrentlyPlaying) {
+                    // Not playing (paused or stopped)
+                    return;
+                }
+
+                if (this.state.status === 'playing') {
+                    // Check for track changes (user manually changed song)
+                    const currentSig = this.adapter.getCurrentTrackDetails();
+                    if (this.state.currentTrackSignature && currentSig) {
+                        if (currentSig !== this.state.currentTrackSignature) {
+                            console.log("[Controller] Track changed manually! Stopping session.");
+                            
+                            // Send feedback before stopping
+                            if (this.state.listeningTime > 0 && this.state.currentTrackId) {
+                                this.api.sendFeedback(
+                                    this.state.userId,
+                                    this.state.currentTrackId,
+                                    this.state.listeningTime
+                                ).then(result => {
+                                    console.log('[Feedback] Manual stop result:', result);
+                                }).catch(err => {
+                                    console.error('[Feedback] Manual stop error:', err);
+                                });
+                            }
+                            
+                            this.ui.showNotification("Track changed! Stopping recommendation session.");
+                            this.stopSession();
+                            return;
+                        }
+                    } else if (!this.state.currentTrackSignature && currentSig) {
+                        this.state.currentTrackSignature = currentSig;
+                    }
+
+                    // Increment listening time
+                    this.state.listeningTime++;
+                    this.ui.updateTimer(this.state.listeningTime);
+                    
+                    // Periodically backup to storage (every 5 seconds)
+                    if (this.state.listeningTime % 5 === 0) {
+                        chrome.storage.local.set({ 'listeningTime': this.state.listeningTime });
+                    }
+
+                    // Check for end of track (auto-advance)
+                    const progress = this.adapter.getProgress();
+                    if (progress && progress.max > 0) {
+                        // If less than 2 seconds remaining
+                        if (progress.current >= progress.max - 2 && progress.current > 1) {
+                            if (!this.state.isChangingTrack) {
+                                this.state.isChangingTrack = true;
+                                console.log("[Controller] Track finished. Auto-playing next...");
+                                this.triggerRecommendation();
+                            }
+                        } else {
+                            this.state.isChangingTrack = false;
+                        }
+                    }
+                }
+            }, 1000); // Tick every second
+        };
+
+        // Hook into state changes to start/stop monitoring interval
+        const originalChangeState = this.changeState.bind(this);
+        this.changeState = (newState) => {
+            originalChangeState(newState);
+            if (newState === 'playing') {
+                wasPlayingBefore = true;
+                startTickingInterval();
+            } else if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+                wasPlayingBefore = false;
+            }
+        };
+    }
+}
+
+// Initialize controller when script loads
+new RecoController();
