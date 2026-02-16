@@ -330,3 +330,86 @@ def recommend_next_track():
     }
 
     return jsonify(response_data)
+
+
+
+
+@app.route('/user/history', methods=['GET'])
+def get_user_history():
+    """
+    Get user's listening history with engagement scores.
+    
+    Query Parameters:
+        userId (str, required): User identifier
+    
+    Returns:
+        JSON: {
+            "status": "success",
+            "user_id": str,
+            "total_songs_listened": int,
+            "unique_songs": int,
+            "total_score": int,
+            "history": [list of listening sessions]
+        }
+    
+    Example:
+        GET /user/history?userId=user_abc123
+    """
+    user_id = request.args.get('userId')
+    
+    if not user_id:
+        return jsonify({"error": "userId parameter is required"}), 400
+    
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        
+        # Retrieve listening history with scores
+        cursor.execute('''
+            SELECT 
+                lh.song_id,
+                lh.listening_time as score,
+                lh.algo_type,
+                lh.timestamp,
+                s.title,
+                s.artist,
+                s.duration
+            FROM listening_history lh
+            LEFT JOIN songs s ON lh.song_id = s.song_id
+            WHERE lh.user_id = ?
+            ORDER BY lh.timestamp DESC
+        ''', (user_id,))
+        
+        rows = cursor.fetchall()
+        
+        # Format results
+        history = []
+        for row in rows:
+            history.append({
+                "song_id": row[0],
+                "score": row[1],
+                "algo_type": row[2],
+                "timestamp": row[3],
+                "title": row[4],
+                "artist": row[5],
+                "duration": row[6]
+            })
+        
+        # Calculate statistics
+        total_score = sum(item['score'] for item in history)
+        unique_songs = len(set(item['song_id'] for item in history))
+        
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "user_id": user_id,
+            "total_songs_listened": len(history),
+            "unique_songs": unique_songs,
+            "total_score": total_score,
+            "history": history
+        })
+        
+    except Exception as e:
+        print(f"[ERROR] Error in /user/history: {e}")
+        return jsonify({"error": str(e)}), 500
